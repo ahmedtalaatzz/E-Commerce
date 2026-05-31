@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    
     - name: Checkout code
       uses: actions/checkout@v4
 
@@ -38,3 +39,13 @@ jobs:
         key: ${{ secrets.SSH_KEY }}
         script: |
           sudo systemctl restart myapi
+
+          
+    - name: Check secret exists
+      run: |
+        if [ -z "${{ secrets.SSH_KEY }}" ]; then
+          echo "SSH_KEY is EMPTY"
+          exit 1
+        else
+          echo "SSH_KEY is LOADED"
+        fi
