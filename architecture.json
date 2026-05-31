@@ -1,0 +1,281 @@
+{
+  "_meta": {
+    "project": "Perfumes E-Commerce System",
+    "version": "1.3",
+    "framework": ".NET 8",
+    "pattern": "Clean Architecture",
+    "lastUpdated": "2026-05-24",
+    "changes": "Added Banner, Brand, Partner CRUD modules with Service Layer pattern, Soft Delete, File Handling, Pagination, and Automatic Database Seeding from wwwroot images"
+  },
+  "stack": {
+    "runtime": ".NET 8 / C# 12",
+    "api": "ASP.NET Core Web API",
+    "orm": "Entity Framework Core 8.0.14",
+    "database": "SQL Server",
+    "mediator": "MediatR 10.0.1",
+    "validation": "FluentValidation 11.11.0",
+    "mapping": "AutoMapper 15.0.0",
+    "auth": "JWT Bearer 8.0.14 + Keycloak",
+    "backgroundJobs": "Hangfire 1.8.22 + Hangfire.Oracle.Core 1.3.24",
+    "email": "SendGrid 9.29.3",
+    "swagger": "Swashbuckle.AspNetCore 6.6.2",
+    "errorHandling": "ErrorOr 2.0.1",
+    "logging": "Serilog 4.2.0 (Application LoggingBehavior)",
+    "dynamicLinq": "System.Linq.Dynamic.Core",
+    "json": "Newtonsoft.Json 13.0.3"
+  },
+  "layers": {
+    "Web.Api": {
+      "role": "API / Presentation",
+      "contains": [
+        "Controllers",
+        "Middlewares",
+        "Program.cs"
+      ],
+      "references": [
+        "Application",
+        "Infrastructure"
+      ],
+      "implementedModules": [
+        "BannerController - Full CRUD with file upload, pagination, toggle status",
+        "BrandController - Full CRUD with file upload, pagination, toggle status",
+        "PartnerController - Full CRUD with file upload, pagination, toggle status"
+      ]
+    },
+    "Application": {
+      "role": "Use Cases / Business Logic",
+      "contains": [
+        "service contracts 'interfaces for services'",
+        "AutoMapperProfile",
+        "Services",
+        "DTOs (Data Transfer Objects)"
+      ],
+      "references": [
+        "Domain"
+      ],
+      "note": "No EF Core here — only interfaces and DTOs",
+      "implementedModules": [
+        "IBannerService / BannerService - CRUD, soft delete, file handling, pagination, toggle status",
+        "IBrandService / BrandService - CRUD, soft delete, file handling, pagination, toggle status",
+        "IPartnerService / PartnerService - CRUD, soft delete, file handling, pagination, toggle status",
+        "IFileService / FileService - Upload files to wwwroot/uploads, delete files, validate extensions and size"
+      ],
+      "dtos": [
+        "Banner: AddBannerDto, UpdateBannerDto, BannerResponseDto",
+        "Brand: AddBrandDto, UpdateBrandDto, BrandResponceDto",
+        "Partner: AddPartnerDto, UpdatePartnerDto, PartnerResponseDto"
+      ]
+    },
+    "Domain": {
+      "role": "Core — Entities, Interfaces, Shared types",
+      "contains": [
+        "Entities",
+        "Interfaces",
+        "Shared/Result",
+        "Shared/Error",
+        "Shared/PagedResult",
+        "Shared/PagedRequest",
+        "UnitOfWorkContract"
+      ],
+      "references": [],
+      "note": "Zero dependencies on other layers or packages",
+      "entities": [
+        "Banner - extends SoftDeletableEntity, has ImageUrl and IsActive",
+        "Brand - extends SoftDeletableEntity, has NameAr, NameEn, ImageUrl, IsActive",
+        "Partner - extends SoftDeletableEntity, has NameAr, NameEn, ImageUrl, IsActive"
+      ],
+      "repositories": [
+        "IBannerRepository - GetAll, GetById, Add, Update, GetPaged",
+        "IBrandRepository - GetAll, GetById, Add, Update, GetPaged",
+        "IPartnerRepository - GetAll, GetById, Add, Update, GetPaged"
+      ]
+    },
+    "Infrastructure": {
+      "role": "Data Access / External Services",
+      "contains": [
+        "ApplicationDbContext",
+        "Repositories",
+        "UnitOfWork",
+        "Migrations",
+        "DataSeeding"
+      ],
+      "references": [
+        "Domain"
+      ],
+      "implementedRepositories": [
+        "BannerRepository - Implements IBannerRepository with EF Core, filters IsDeleted",
+        "BrandRepository - Implements IBrandRepository with EF Core, filters IsDeleted",
+        "PartnerRepository - Implements IPartnerRepository with EF Core, filters IsDeleted"
+      ],
+      "dbContext": {
+        "tables": [
+          "banners - with indexes on (IsActive, IsDeleted) and CreatedAt",
+          "brands - with indexes on (IsActive, IsDeleted), NameEn, and CreatedAt",
+          "partners - with indexes on (IsActive, IsDeleted), NameEn, and CreatedAt"
+        ],
+        "globalQueryFilters": "All entities have query filter: !IsDeleted"
+      },
+      "dataSeeding": {
+        "location": "Infrastructure/DataSeeding/",
+        "components": [
+          "IDataSeeder - Seeding interface",
+          "DatabaseSeeder - Main seeder implementation",
+          "LanguageHelper - Arabic/English translation logic"
+        ],
+        "behavior": "Runs automatically on application startup, reads images from wwwroot/uploads folders and creates database records",
+        "features": [
+          "Idempotent - safe to run multiple times",
+          "Smart name translation - detects Arabic/English from filenames",
+          "Duplicate prevention - checks existing records",
+          "Comprehensive logging"
+        ]
+      }
+    }
+  },
+  "baseEntities": {
+    "BaseEntity": {
+      "fields": {
+        "Id": "Guid"
+      }
+    },
+    "AuditableEntity": {
+      "extends": "BaseEntity",
+      "fields": {
+        "CreatedBy": "Guid  — plain column, no navigation",
+        "CreatedAt": "DateTime",
+        "ModifiedBy": "Guid  — plain column, no navigation",
+        "ModifiedAt": "DateTime?"
+      },
+      "use": "Most domain entities"
+    },
+    "SoftDeletableEntity": {
+      "extends": "AuditableEntity",
+      "fields": {
+        "IsDeleted": "bool DEFAULT false",
+        "DeletedAt": "DateTime?"
+      },
+      "use": "Entities requiring logical delete (Banner, Brand, Partner)"
+    }
+  },
+  "controllerConventions": {
+    "baseClass": "ApiController  (Booking/Abstractions/ApiController.cs)",
+    "routing": "[Route(\"api/[controller]\")]",
+    "returns": "IActionResult wrapping Result<T>",
+    "errorHandling": "HandleFailure(result) in ApiController — maps Error codes to HTTP status codes (NotFound→404, Duplicate→409, ValidationErrors→400)",
+    "endpointPatterns": {
+      "create": "POST   /api/{resource}         → 201 Created",
+      "pagedList": "POST   /api/{resource}/paged  → 200 OK  [FromBody] query with PagedRequest",
+      "getById": "GET    /api/{resource}/{id:guid} → 200 OK",
+      "getAll": "GET    /api/{resource} → 200 OK",
+      "update": "PUT    /api/{resource}/{id:guid} → 200 OK",
+      "delete": "DELETE /api/{resource}/{id:guid} → 204 NoContent (Soft Delete)",
+      "toggleStatus": "PUT /api/{resource}/{id:guid}/toggle-status → 200 OK"
+    },
+    "note": "Never put business logic in controllers. Paged list uses POST /paged so filters travel in the request body. Add documentation for each endpoint as summary description and response for each status to appear in swagger"
+  },
+  "documentationConventions": {
+    "standard": "C# XML Documentation Notes (`/// <summary>`, `/// <param>`, `/// <remarks>`)",
+    "rule": "Always document classes, interfaces, and complex methods. Maintain robust context explaining boundaries and purpose.",
+    "references": "See Domain/Interfaces/IRepository.cs and Infrastructure/Repositories/Repository.cs for the required standard."
+  },
+  "fileHandlingConventions": {
+    "uploadPath": "wwwroot/uploads/{entity}/",
+    "allowedExtensions": [".jpg", ".jpeg", ".png", ".webp"],
+    "maxFileSize": "10 MB",
+    "fileNaming": "GUID-based (Guid.NewGuid() + extension)",
+    "storageFormat": "Relative path stored in DB: /uploads/{entity}/{filename}",
+    "rules": [
+      "On Create: Upload file, store relative path",
+      "On Update: Delete old file if new file provided, upload new file, update path",
+      "On Delete: Delete physical file before soft delete"
+    ]
+  },
+  "softDeleteConventions": {
+    "rule": "NEVER physically delete records",
+    "implementation": "Set IsDeleted = true, DeletedAt = UtcNow",
+    "queryFiltering": "All queries MUST filter IsDeleted == false",
+    "globalQueryFilter": "Applied in DbContext: entity.HasQueryFilter(e => !e.IsDeleted)"
+  },
+  "paginationConventions": {
+    "requestModel": "PagedRequest (PageNumber, PageSize, Search, IsActive)",
+    "responseModel": "PagedResult<T> (Items, TotalCount, PageNumber, PageSize, TotalPages, HasPrevious, HasNext)",
+    "endpoint": "POST /api/{resource}/paged",
+    "filtering": "Supports Search (NameAr/NameEn) and IsActive filter"
+  },
+  "implementedModules": {
+    "Banner": {
+      "entity": "Domain/Entities/Banner.cs",
+      "repository": "Domain/IRepositries/IBannerRepository.cs + Infrastructure/Repositries/BannerRepository.cs",
+      "service": "Application/Service Contract/IBannerService.cs + Application/Services/BannerService.cs",
+      "controller": "Web.Api/Controllers/BannerController.cs",
+      "dtos": "Application/DTO/Banner/{AddBannerDto, UpdateBannerDto, BannerResponseDto}",
+      "features": ["CRUD", "Soft Delete", "File Upload/Delete", "Pagination", "Toggle Status"],
+      "endpoints": [
+        "GET /api/banner - Get all active banners",
+        "GET /api/banner/{id} - Get banner by ID",
+        "POST /api/banner - Create banner with image",
+        "PUT /api/banner/{id} - Update banner with optional new image",
+        "DELETE /api/banner/{id} - Soft delete banner",
+        "POST /api/banner/paged - Get paginated banners",
+        "PUT /api/banner/{id}/toggle-status - Toggle IsActive"
+      ]
+    },
+    "Brand": {
+      "entity": "Domain/Entities/Brand.cs",
+      "repository": "Domain/IRepositries/IBrandRepository.cs + Infrastructure/Repositries/BrandRepository.cs",
+      "service": "Application/Service Contract/IBrandService.cs + Application/Services/BrandService.cs",
+      "controller": "Web.Api/Controllers/BrandController.cs",
+      "dtos": "Application/DTO/Brand/{AddBrandDto, UpdateBrandDto, BrandResponceDto}",
+      "features": ["CRUD", "Soft Delete", "File Upload/Delete", "Pagination", "Toggle Status", "Search by NameAr/NameEn"],
+      "endpoints": [
+        "GET /api/brand - Get all active brands",
+        "GET /api/brand/{id} - Get brand by ID",
+        "POST /api/brand - Create brand with image",
+        "PUT /api/brand/{id} - Update brand with optional new image",
+        "DELETE /api/brand/{id} - Soft delete brand",
+        "POST /api/brand/paged - Get paginated brands with search",
+        "PUT /api/brand/{id}/toggle-status - Toggle IsActive"
+      ]
+    },
+    "Partner": {
+      "entity": "Domain/Entities/Partner.cs",
+      "repository": "Domain/IRepositries/IPartnerRepository.cs + Infrastructure/Repositries/PartnerRepository.cs",
+      "service": "Application/Service Contract/IPartnerService.cs + Application/Services/PartnerService.cs",
+      "controller": "Web.Api/Controllers/PartnerController.cs",
+      "dtos": "Application/DTO/Partner/{AddPartnerDto, UpdatePartnerDto, PartnerResponseDto}",
+      "features": ["CRUD", "Soft Delete", "File Upload/Delete", "Pagination", "Toggle Status", "Search by NameAr/NameEn"],
+      "endpoints": [
+        "GET /api/partner - Get all active partners",
+        "GET /api/partner/{id} - Get partner by ID",
+        "POST /api/partner - Create partner with image",
+        "PUT /api/partner/{id} - Update partner with optional new image",
+        "DELETE /api/partner/{id} - Soft delete partner",
+        "POST /api/partner/paged - Get paginated partners with search",
+        "PUT /api/partner/{id}/toggle-status - Toggle IsActive"
+      ]
+    }
+  },
+  "dependencyInjection": {
+    "Application": "Application/DI/ServiceContainer.cs - Registers all services and AutoMapper",
+    "Infrastructure": "Infrastructure/DI/ServiceContainer.cs - Registers all repositories",
+    "registeredServices": [
+      "IBannerService → BannerService",
+      "IBrandService → BrandService",
+      "IPartnerService → PartnerService",
+      "IFileService → FileService"
+    ],
+    "registeredRepositories": [
+      "IBannerRepository → BannerRepository",
+      "IBrandRepository → BrandRepository",
+      "IPartnerRepository → PartnerRepository"
+    ]
+  },
+  "autoMapperProfiles": {
+    "location": "Application/MapperConfig/MappConfig.cs",
+    "mappings": [
+      "Brand ↔ BrandResponceDto",
+      "Banner ↔ BannerResponseDto",
+      "Partner ↔ PartnerResponseDto"
+    ]
+  }
+}

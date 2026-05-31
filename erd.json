@@ -1,0 +1,166 @@
+{
+
+  "_meta": {
+    "project": "Perfumes E-Commerce System",
+    "version": "1.1",
+    "orm": "EF Core 8 / SQL Server",
+    "note": "Only tables in 'schema' are local DB tables owned by this service. Everything under 'external' is accessed via MassTransit only — never create EF entities for them."
+  },
+
+  "baseClasses": {
+    "BaseEntity": {
+      "fields": {
+        "Id": "Guid PK"
+      }
+    },
+    "AuditableEntity": {
+      "extends": "BaseEntity",
+      "fields": {
+        "CreatedBy": "Guid",
+        "CreatedAt": "DateTime",
+        "ModifiedBy": "Guid",
+        "ModifiedAt": "DateTime?"
+      }
+    },
+    "SoftDeletableEntity": {
+      "extends": "AuditableEntity",
+      "fields": {
+        "IsDeleted": "bool DEFAULT false",
+        "DeletedAt": "DateTime?"
+      }
+    }
+  },
+  "schema": {
+    "Banner": {
+      "extends": "SoftDeletableEntity",
+      "table": "banners",
+      "fields": {
+        "Id": "Guid PK",
+        "ImageUrl": "VARCHAR(500) NOT NULL",
+        "IsActive": "bool DEFAULT true",
+        "CreatedAt": "DateTime",
+        "UpdatedAt": "DateTime?",
+        "IsDeleted": "bool DEFAULT false",
+        "DeletedAt": "DateTime?"
+      },
+      "rules": [
+        "Banner contains only a single image stored in wwwroot/uploads/banners",
+        "On create: frontend sends ImageFile, backend saves file to wwwroot and stores generated relative path in ImageUrl",
+        "On update: if a new ImageFile is provided, the old file must be deleted from wwwroot before saving the new one and updating ImageUrl",
+        "On delete: the physical image file must be deleted from wwwroot before soft delete is applied",
+        "Only active banners are shown in public endpoints (IsActive = true and IsDeleted = false)"
+      ]
+    },
+
+    "Brand": {
+      "extends": "SoftDeletableEntity",
+      "table": "brands",
+      "fields": {
+        "Id": "Guid PK",
+        "NameAr": "VARCHAR(200) NOT NULL",
+        "NameEn": "VARCHAR(200) NOT NULL",
+        "ImageUrl": "VARCHAR(500) NOT NULL",
+        "IsActive": "bool DEFAULT true",
+        "CreatedAt": "DateTime",
+        "UpdatedAt": "DateTime?",
+        "IsDeleted": "bool DEFAULT false",
+        "DeletedAt": "DateTime?"
+      },
+      "rules": [
+        "Brand has a single logo image stored in wwwroot/uploads/brands",
+        "On create: ImageFile is uploaded from frontend, saved physically in wwwroot, and ImageUrl stores relative path",
+        "On update: replacing image requires deleting old file from wwwroot before saving new one",
+        "On delete: associated image file must be removed from wwwroot before soft delete is applied",
+        "Brands are used for filtering products and must always return only active non-deleted records in public APIs"
+      ]
+    },
+
+    "Partner": {
+      "extends": "SoftDeletableEntity",
+      "table": "partners",
+      "fields": {
+        "Id": "Guid PK",
+        "NameAr": "VARCHAR(200) NOT NULL",
+        "NameEn": "VARCHAR(200) NOT NULL",
+        "ImageUrl": "VARCHAR(500) NOT NULL",
+        "IsActive": "bool DEFAULT true",
+        "CreatedAt": "DateTime",
+        "UpdatedAt": "DateTime?",
+        "IsDeleted": "bool DEFAULT false",
+        "DeletedAt": "DateTime?"
+      },
+      "rules": [
+        "Partner has a single logo image stored in wwwroot/uploads/partners",
+        "On create: frontend sends ImageFile, backend stores file in wwwroot and saves relative path in ImageUrl",
+        "On update: old image must be deleted from wwwroot if a new image is uploaded",
+        "On delete: image file must be physically removed before soft deletion",
+        "Partners are displayed only when IsActive = true and IsDeleted = false"
+      ]
+    }
+  },
+  "businessRules": {},
+  "indexes": [
+    {
+      "table": "banners",
+      "columns": [
+        "IsActive",
+        "IsDeleted"
+      ],
+      "type": "INDEX"
+    },
+    {
+      "table": "banners",
+      "columns": [
+        "CreatedAt"
+      ],
+      "type": "INDEX"
+    },
+
+    {
+      "table": "brands",
+      "columns": [
+        "IsActive",
+        "IsDeleted"
+      ],
+      "type": "INDEX"
+    },
+    {
+      "table": "brands",
+      "columns": [
+        "NameEn"
+      ],
+      "type": "INDEX"
+    },
+    {
+      "table": "brands",
+      "columns": [
+        "CreatedAt"
+      ],
+      "type": "INDEX"
+    },
+
+    {
+      "table": "partners",
+      "columns": [
+        "IsActive",
+        "IsDeleted"
+      ],
+      "type": "INDEX"
+    },
+    {
+      "table": "partners",
+      "columns": [
+        "NameEn"
+      ],
+      "type": "INDEX"
+    },
+    {
+      "table": "partners",
+      "columns": [
+        "CreatedAt"
+      ],
+      "type": "INDEX"
+    }
+  ]
+
+}

@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/docs/">
+    <File Path="architecture.json" />
+    <File Path="Banner,Brand,partnerImplementationPrompt.md" />
+    <File Path="erd.json" />
+  </Folder>
+  <Project Path="Application/Application.csproj" />
+  <Project Path="Domain/Domain.csproj" />
+  <Project Path="Infrastructure/Infrastructure.csproj" />
+  <Project Path="Web.Api/Web.Api.csproj" />
+</Solution>
