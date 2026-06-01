@@ -3,38 +3,47 @@ name: Deploy .NET API
 on:
   push:
     branches: 
-    - main
+      - main
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Check secret exists
+        run: |
+          if [ -z "${{ secrets.SSH_KEY }}" ]; then
+            echo "SSH_KEY is EMPTY"
+            exit 1
+          else
+            echo "SSH_KEY is LOADED"
+          fi
 
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: 8.0.x
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Publish project
-      run: dotnet publish -c Release -o publish
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
 
-    - name: Copy files to server
-      uses: appleboy/scp-action@v0.1.7
-      with:
-        host: ${{ secrets.SERVER_IP }}
-        username: deploy
-        key: ${{ secrets.SSH_KEY }}
-        source: "publish/*"
-        target: "/var/www/myapi"
+      - name: Publish project
+        run: dotnet publish -c Release -o publish
 
-    - name: Restart API
-      uses: appleboy/ssh-action@v1.0.3
-      with:
-        host: ${{ secrets.SERVER_IP }}
-        username: deploy
-        key: ${{ secrets.SSH_KEY }}
-        script: |
-          sudo systemctl restart myapi
+      - name: Copy files to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: deploy
+          key: ${{ secrets.SSH_KEY }}
+          source: "publish/*"
+          target: "/var/www/myapi"
+
+      - name: Restart API
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: deploy
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            sudo systemctl restart myapi
